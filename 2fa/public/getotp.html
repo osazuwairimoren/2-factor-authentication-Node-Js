@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Get OTP - MFA System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Retrieve Your OTP</h2>
+    <p id="usernameDisplay"></p>
+    <!-- Always show the secret key input field -->
+    <div id="secretInputSection">
+      <input type="text" id="manual-secret" placeholder="Enter your Secret Key">
+    </div>
+    <button onclick="getOTP()"><i class="fas fa-key"></i> Get OTP</button>
+    
+    <!-- Error message container -->
+    <div id="message" class="error-message" style="display: none;">
+      <span id="errorText"></span>
+      <button onclick="closeError()">&times;</button>
+    </div>
+    
+    <p id="otpMessage"></p>
+    <!-- Proceed button opens OTP verification page in a new tab -->
+    <button id="proceedBtn" style="display: none;" onclick="redirectToOTP()"><i class="fas fa-arrow-right"></i> Proceed to OTP Verification</button>
+  </div>
+  <script>
+    let otpIntervalId = null; // To store the interval ID
+
+    function fetchOTP() {
+      let username = localStorage.getItem("username");
+      let secretKey = document.getElementById("manual-secret").value.trim();
+
+      if (!username || !secretKey) {
+        showError("Both username and secret key are required.");
+        return;
+      }
+      console.log("Fetching OTP for", username, "with secret:", secretKey);
+      fetch("/api/get-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, secretKey })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.otp) {
+          document.getElementById("otpMessage").innerText = "Your OTP is: " + data.otp;
+          localStorage.setItem("secretKey", secretKey);
+          document.getElementById("proceedBtn").style.display = "block";
+          closeError(); // Hide any previous errors
+        } else {
+          showError(data.message);
+        }
+      })
+      .catch(error => {
+        showError("Error fetching OTP.");
+        console.error("Error:", error);
+      });
+    }
+
+    function getOTP() {
+      fetchOTP();
+      if (!otpIntervalId) {
+        otpIntervalId = setInterval(fetchOTP, 30000); // Refresh every 30 seconds
+      }
+    }
+
+    function redirectToOTP() {
+      window.open("/otp.html", "_blank");
+    }
+
+    // On page load, display stored username
+    window.onload = function() {
+      const username = localStorage.getItem("username");
+      if (username) {
+        document.getElementById("usernameDisplay").innerText = "Logged in as: " + username;
+      } else {
+        document.getElementById("usernameDisplay").innerText = "No stored username found.";
+      }
+    }
+
+    // Error handling helper functions
+    function showError(message) {
+      const errorContainer = document.getElementById("message");
+      const errorText = document.getElementById("errorText");
+      errorText.innerText = message;
+      errorContainer.style.display = "flex";
+    }
+
+    function closeError() {
+      document.getElementById("message").style.display = "none";
+    }
+  </script>
+</body>
+</html>
